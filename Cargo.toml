@@ -1,0 +1,6 @@
+[workspace]
+resolver ="2" 
+members = [ "days/five", "days/four",
+    "days/one", "days/six", "days/three", "days/two",
+    "elves",
+]
