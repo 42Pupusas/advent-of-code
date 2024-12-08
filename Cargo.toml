@@ -1,6 +1,9 @@
 [workspace]
 resolver ="2" 
-members = [ "days/five", "days/four",
+members = [ "days/eight", "days/five", "days/four",
     "days/one", "days/seven", "days/six", "days/three", "days/two",
     "elves",
 ]
+
+[workspace.dependencies]
+colored = "2.1.0"

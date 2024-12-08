@@ -1,232 +1,409 @@
-use std::io::{BufRead, Read};
-
-fn open(filename: &str) -> impl BufRead {
-    let f = std::fs::OpenOptions::new()
-        .read(true)
-        .open(filename)
-        .unwrap();
-
-    std::io::BufReader::new(f)
-}
-
-pub fn read_by_byte(filename: &str) -> impl Iterator<Item = u8> {
-    let mut buffer = open(filename);
-    std::iter::from_fn(move || {
-        let mut buf = [0u8; 1];
-        buffer.read_exact(&mut buf).ok()?;
-        Some(buf[0])
-    })
-}
+use colored::*;
+use std::fmt::Display;
 
 fn main() {
-    let input_file = read_by_byte("days/three/input.txt")
-        .map(|c| c as char)
-        .collect::<Vec<char>>();
+    println!("Hello, advent of code day three!");
+    let input_file = include_str!("../input.txt");
+    println!();
+    println!();
+    println!("Part one");
+    println!();
+    read_instructions(input_file, false);
+    println!();
+    println!();
+    println!("Part two");
+    println!();
+    read_instructions(input_file, true);
+    println!();
+}
+fn read_instructions(input: &str, control: bool) {
+    let instructions = input
+        .chars()
+        .map(|c| OpChar::from(c))
+        .collect::<Vec<OpChar>>();
+    //println!("Instructions:");
+    //instructions.iter().for_each(|x| {
+    //    print!("{}", x);
+    //});
+    let mut index = 0;
+    let mut op_instructions = InstructionSet {
+        is_doing: true,
+        instructions: Vec::new(),
+    };
 
-    let mut mult_strs = input_file.iter().peekable();
-    let mut enabled = false;
-    let mut mul_instructions = 0;
-    while let Some(c) = mult_strs.next() {
-        if c == &'m' {
-            if let Some('u') = mult_strs.next() {
-                if let Some('l') = mult_strs.next() {
-                    if let Some('(') = mult_strs.next() {
-                        let mut instruction = String::new();
-                        while let Some(c) = mult_strs.next_if(|c| c != &&')') {
-                            if c.is_numeric() || c == &',' {
-                                instruction.push(c.clone());
-                            } else {
-                                break;
-                            }
-                        }
-                        if let Some((x_str, y_str)) = instruction.split_once(',') {
-                            let x = x_str.parse::<i32>();
-                            let y = y_str.parse::<i32>();
-                            if let (Ok(x), Ok(y)) = (x, y) {
-                                let mul = x * y;
-                                if enabled {
-                                    mul_instructions += mul;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if c == &'d' {
-            if let Some('o') = mult_strs.next() {
-                match mult_strs.next() {
-                    Some('(') => {
-                        if let Some(')') = mult_strs.next() {
-                            enabled = true;
-                        }
-                    }
-                    Some('n') => {
-                        if let Some('\'') = mult_strs.next() {
-                            if let Some('t') = mult_strs.next() {
-                                if let Some('(') = mult_strs.next() {
-                                    if let Some(')') = mult_strs.next() {
-                                        enabled = false;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
+    while index < instructions.len() {
+        let remaining = &instructions[index..]; // Slice remaining instructions
+
+        // Try to parse the instructions
+        if op_instructions.parse_instructions(remaining, control).is_ok() {
+            // Find the closing parenthesis to advance the index properly
+            index += remaining
+                .iter()
+                .position(|x| x == &OpChar::CloseParen)
+                .unwrap_or(remaining.len())
+                + 1; // Move past the closing parenthesis
+        } else {
+            // If no token is found, move to the next character
+            index += 1;
         }
     }
-    println!("NEW {:?}", mul_instructions);
+
+    let total = op_instructions
+        .instructions
+        .iter()
+        .map(|x| x.operate())
+        .sum::<u64>();
+    println!("Total: {}", total);
 }
 
-#[derive(Debug)]
-pub struct MulInstruction {
-    pub x: i32,
-    pub y: i32,
-}
-impl MulInstruction {
-    pub fn parse_mul_instruction(instruction: &str) -> Result<Self, String> {
-        let instruction =
-            instruction.trim_matches(|c| c == 'm' || c == 'u' || c == 'l' || c == '(' || c == ')');
-        let (x, y) = instruction.split_once(',').ok_or("Invalid instruction")?;
-        let x = x.parse::<i32>().map_err(|_| "Invalid x")?;
-        let y = y.parse::<i32>().map_err(|_| "Invalid y")?;
-        if x > 999 || y > 999 {
-            return Err("Invalid x or y".to_string());
-        }
-        Ok(Self { x, y })
-    }
-    pub fn parse_instruction_set(instruction_set: &str) -> Vec<Self> {
-        let mult_strs = instruction_set.split("mul").collect::<Vec<&str>>();
-        mult_strs
-            .iter()
-            .filter_map(|s| {
-                let stripped_instructions = s.split_inclusive(')').collect::<Vec<&str>>();
-                let instruction = stripped_instructions.first()?;
-                Self::parse_mul_instruction(instruction).ok()
-            })
-            .collect::<Vec<_>>()
-    }
-    pub fn multiply_instruction_set(instruction_set: &str) -> i32 {
-        let instructions = Self::parse_instruction_set(instruction_set);
-        println!("Instructions {:?}", instructions.len());
-        instructions.iter().fold(0, |acc, x| acc + x.multiply())
-    }
-    pub fn multiply(&self) -> i32 {
-        self.x * self.y
-    }
-}
 #[cfg(test)]
 mod tests {
-    use crate::MulInstruction;
-
+    use super::*;
+    const TEST_INSTRUCTIONS: &str =
+        "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))mul( 2 , 2 )";
     #[test]
-    fn parse_conditional_instruction_set() {}
-    #[test]
-    fn parse_mul_string() {
-        pub const BROKEN_TEST_STR_1: &str = "mul(4*";
-        pub const BROKEN_TEST_STR_2: &str = "mul(6,9!";
-        pub const BROKEN_TEST_STR_3: &str = "?(12,34)";
-        pub const BROKEN_TEST_STR_4: &str = "mul ( 2 , 4 )";
-        pub const TEST_STR: &str = "mul(223,3)";
-        pub const TEST_STR_1: &str = "(223,3)";
-        pub const TEST_STR_2: &str = "mul(223,3))";
-        let result = super::MulInstruction::parse_mul_instruction(TEST_STR);
-        println!("{:?}", result);
-        let result_2 = super::MulInstruction::parse_mul_instruction(TEST_STR_1);
-        println!("{:?}", result);
-        let result_3 = super::MulInstruction::parse_mul_instruction(TEST_STR_2);
-        println!("{:?}", result);
-        let err = super::MulInstruction::parse_mul_instruction(BROKEN_TEST_STR_1);
-        println!("{:?}", err);
-        let err2 = super::MulInstruction::parse_mul_instruction(BROKEN_TEST_STR_2);
-        println!("{:?}", err2);
-        let err3 = super::MulInstruction::parse_mul_instruction(BROKEN_TEST_STR_3);
-        println!("{:?}", err3);
-        let err4 = super::MulInstruction::parse_mul_instruction(BROKEN_TEST_STR_4);
-        println!("{:?}", err4);
-        assert_eq!(result.is_ok(), true);
-        assert_eq!(result_2.is_ok(), true);
-        assert_eq!(result_3.is_ok(), true);
-        assert_eq!(err.is_err(), true);
-        assert_eq!(err2.is_err(), true);
-        assert_eq!(err3.is_err(), true);
-        assert_eq!(err4.is_err(), true);
-    }
-    #[test]
-    fn parse_instruction_set() {
-        pub const TEST_STR: &str =
-            "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
-        // must split at 'mul' 'do' or 'dont'
-        let mut mult_strs = TEST_STR.chars().peekable();
-        println!("{:?}", mult_strs);
-        let mut enabled = true;
-        let mut mul_instructions = vec![];
-        while let Some(c) = mult_strs.next() {
-            if c == 'm' {
-                if let Some('u') = mult_strs.next() {
-                    if let Some('l') = mult_strs.next() {
-                        if let Some('(') = mult_strs.next() {
-                            let mut instruction = String::new();
-                            while let Some(c) = mult_strs.next_if(|c| c != &')') {
-                                if c.is_numeric() || c == ',' {
-                                    instruction.push(c);
-                                } else {
-                                    break;
-                                }
-                            }
-                            println!("found mul {}", instruction);
-                            if let Some((x_str, y_str)) = instruction.split_once(',') {
-                                let x = x_str.parse::<i32>();
-                                let y = y_str.parse::<i32>();
-                                if let (Ok(x), Ok(y)) = (x, y) {
-                                    println!("x is {} y is {}", x, y);
-                                    let mul = MulInstruction { x, y };
-                                    if enabled {
-                                        mul_instructions.push(mul);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+    fn read_instruction_set() {
+        let instructions = TEST_INSTRUCTIONS
+            .chars()
+            .map(|c| OpChar::from(c))
+            .collect::<Vec<OpChar>>();
+        instructions.iter().for_each(|x| {
+            print!("{}", x);
+        });
+        println!();
+        let mut index = 0;
+        let mut op_instructions = InstructionSet {
+            is_doing: true,
+            instructions: Vec::new(),
+        };
+        while index < instructions.len() {
+            let remaining = &instructions[index..]; // Slice remaining instructions
+            if op_instructions.parse_instructions(remaining, false).is_ok() {
+                index += remaining
+                    .iter()
+                    .position(|x| x == &OpChar::CloseParen)
+                    .unwrap_or(remaining.len())
+                    + 1;
+            } else {
+                // If no token is found, move to the next character
+                index += 1;
             }
-            if c == 'd' {
-                if let Some('o') = mult_strs.next() {
-                    match mult_strs.next() {
-                        Some('(') => {
-                            if let Some(')') = mult_strs.next() {
-                                println!("found do");
-                                enabled = true;
-                            }
-                        }
-                        Some('n') => {
-                            if let Some('\'') = mult_strs.next() {
-                                if let Some('t') = mult_strs.next() {
-                                    if let Some('(') = mult_strs.next() {
-                                        if let Some(')') = mult_strs.next() {
-                                            println!("found dont");
-                                            enabled = false;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
+        }
+        let total = op_instructions
+            .instructions
+            .iter()
+            .map(|x| x.operate())
+            .sum::<u64>();
+        println!("Total: {}", total);
+        assert_eq!(total, 161);
+    }
+    const PART_TWO_TEST: &str =
+        r"#xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
+    #[test]
+    fn read_instruction_set_part_two() {
+        let instructions = PART_TWO_TEST
+            .chars()
+            .map(|c| OpChar::from(c))
+            .collect::<Vec<OpChar>>();
+        instructions.iter().for_each(|x| {
+            print!("{}", x);
+        });
+        println!();
+        let mut index = 0;
+        let mut op_instructions = InstructionSet {
+            is_doing: true,
+            instructions: Vec::new(),
+        };
+        while index < instructions.len() {
+            let remaining = &instructions[index..]; // Slice remaining instructions
+            if op_instructions.parse_instructions(remaining, true).is_ok() {
+                index += remaining
+                    .iter()
+                    .position(|x| x == &OpChar::CloseParen)
+                    .unwrap_or(remaining.len())
+                    + 1;
+            } else {
+                // If no token is found, move to the next character
+                index += 1;
+            }
+        }
+        let total = op_instructions
+            .instructions
+            .iter()
+            .map(|x| x.operate())
+            .sum::<u64>();
+        println!("Total: {}", total);
+        assert_eq!(total, 48);
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OpChar {
+    M,
+    U,
+    L,
+    Comma,
+    Number(char),
+    OpenParen,
+    CloseParen,
+    D,
+    O,
+    N,
+    T,
+    Apostrophe,
+    NoOp,
+}
+impl From<&char> for OpChar {
+    fn from(value: &char) -> Self {
+        match value {
+            'm' => Self::M,
+            'u' => Self::U,
+            'l' => Self::L,
+            '(' => Self::OpenParen,
+            ')' => Self::CloseParen,
+            ',' => Self::Comma,
+            'd' => Self::D,
+            'o' => Self::O,
+            'n' => Self::N,
+            't' => Self::T,
+            '\'' => Self::Apostrophe,
+            _ => {
+                if value.is_digit(10) {
+                    Self::Number(*value)
+                } else {
+                    Self::NoOp
                 }
             }
         }
-        let total = mul_instructions.iter().fold(0, |acc, x| acc + x.multiply());
-        println!("{:?}", total);
     }
-    #[test]
-    fn day_three_test() {
-        pub const TEST_STR: &str =
-            "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
-        let total = super::MulInstruction::multiply_instruction_set(TEST_STR);
-        println!("{:?}", total);
-        assert_eq!(total, 161);
+}
+impl From<char> for OpChar {
+    fn from(value: char) -> Self {
+        match value {
+            'm' => Self::M,
+            'u' => Self::U,
+            'l' => Self::L,
+            '(' => Self::OpenParen,
+            ')' => Self::CloseParen,
+            ',' => Self::Comma,
+            'd' => Self::D,
+            'o' => Self::O,
+            'n' => Self::N,
+            't' => Self::T,
+            '\'' => Self::Apostrophe,
+            _ => {
+                if value.is_digit(10) {
+                    Self::Number(value)
+                } else {
+                    Self::NoOp
+                }
+            }
+        }
+    }
+}
+impl Display for OpChar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::M => write!(f, "{}", "m".yellow()),
+            Self::U => write!(f, "{}", "u".yellow()),
+            Self::L => write!(f, "{}", "l".yellow()),
+            Self::Comma => write!(f, "{}", ",".yellow()),
+            Self::Number(c) => write!(f, "{}", c.to_string().blue()),
+            Self::OpenParen => write!(f, "{}", "(".purple()),
+            Self::CloseParen => write!(f, "{}", ")".purple()),
+            Self::D => write!(f, "{}", "d".green()),
+            Self::O => write!(f, "{}", "o".green()),
+            Self::N => write!(f, "{}", "n".red()),
+            Self::T => write!(f, "{}", "t".red()),
+            Self::Apostrophe => write!(f, "{}", "'".red()),
+            Self::NoOp => write!(f, " "),
+        }
+    }
+}
+enum OpToken {
+    Mul,
+    Do,
+    DoNot,
+}
+impl TryFrom<&[&OpChar]> for OpToken {
+    type Error = ();
+    fn try_from(value: &[&OpChar]) -> Result<Self, Self::Error> {
+        match value.len() {
+            4 => match value.first() {
+                Some(&OpChar::D) => {
+                    if value[1] == &OpChar::O
+                        && value[2] == &OpChar::OpenParen
+                        && value[3] == &OpChar::CloseParen
+                    {
+                        Ok(Self::Do)
+                    } else {
+                        Err(())
+                    }
+                }
+                Some(&OpChar::M) => {
+                    if value[1] == &OpChar::U
+                        && value[2] == &OpChar::L
+                        && value[3] == &OpChar::OpenParen
+                    {
+                        Ok(Self::Mul)
+                    } else {
+                        Err(())
+                    }
+                }
+                _ => Err(()),
+            },
+            7 => {
+                if value[0] == &OpChar::D
+                    && value[1] == &OpChar::O
+                    && value[2] == &OpChar::N
+                    && value[3] == &OpChar::Apostrophe
+                    && value[4] == &OpChar::T
+                    && value[5] == &OpChar::OpenParen
+                    && value[6] == &OpChar::CloseParen
+                {
+                    Ok(Self::DoNot)
+                } else {
+                    Err(())
+                }
+            }
+            _ => Err(()),
+        }
+    }
+}
+#[derive(Debug)]
+enum OpInstruction {
+    Mul(u64, u64),
+}
+impl OpInstruction {
+    fn operate(&self) -> u64 {
+        match self {
+            Self::Mul(a, b) => {
+                if a > &999 || b > &999 {
+                    0
+                } else {
+                    a * b
+                }
+            }
+        }
+    }
+}
+impl Display for OpInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Mul(a, b) => write!(f, "mul({}, {})", a, b),
+        }
+    }
+}
+pub struct InstructionSet {
+    is_doing: bool,
+    instructions: Vec<OpInstruction>,
+}
+impl InstructionSet {
+    fn parse_instructions(&mut self, input: &[OpChar], controlablle: bool) -> Result<(), ()> {
+        let mut chars = input.iter().peekable();
+        while let Some(op_char) = chars.peek() {
+            if op_char == &&OpChar::NoOp {
+                chars.next();
+                return Err(());
+            }
+            match op_char {
+                &&OpChar::D => {
+                    let mut word = Vec::new();
+                    word.push(*op_char);
+                    for _ in 0..7 {
+                        chars.next(); // Skip 'u' and 'l'
+                        match chars.peek() {
+                            Some(OpChar::CloseParen) => {
+                                word.push(&OpChar::CloseParen);
+                                break;
+                            }
+                            Some(OpChar::NoOp) => return Err(()),
+                            Some(next_op_char) => word.push(*next_op_char),
+                            _ => return Err(()),
+                        }
+                    }
+                    let word = OpToken::try_from(&word[..])?;
+                    match word {
+                        OpToken::Do => {
+                            if controlablle && !self.is_doing {
+                                self.is_doing = true;
+                                return Ok(());
+                            }
+                        }
+                        OpToken::DoNot => {
+                            if controlablle && self.is_doing {
+                                self.is_doing = false;
+                                return Ok(());
+                            }
+                        }
+                        _ => return Err(()),
+                    }
+                }
+                &&OpChar::M => {
+                    if !self.is_doing {
+                        return Err(());
+                    }
+                    let mut word = Vec::new();
+                    word.push(*op_char);
+                    for _ in 0..3 {
+                        chars.next(); // Skip 'u' and 'l'
+                        match chars.peek() {
+                            Some(OpChar::OpenParen) => {
+                                word.push(&OpChar::OpenParen);
+                                break;
+                            }
+                            Some(OpChar::NoOp) => return Err(()),
+                            Some(next_op_char) => word.push(*next_op_char),
+                            _ => return Err(()),
+                        }
+                    }
+                    matches!(OpToken::try_from(&word[..])?, OpToken::Mul);
+                    chars.next();
+                    let mut value_one = String::new();
+                    let mut value_two = String::new();
+                    let mut found_comma = false;
+
+                    while let Some(c) = chars.peek() {
+                        match c {
+                            OpChar::CloseParen => {
+                                if found_comma {
+                                    let new_instruction = OpInstruction::Mul(
+                                        value_one.parse().unwrap(),
+                                        value_two.parse().unwrap(),
+                                    );
+                                    self.instructions.push(new_instruction);
+                                    return Ok(());
+                                } else {
+                                    return Err(()); // Missing comma between values
+                                }
+                            }
+                            OpChar::Comma => {
+                                if found_comma {
+                                    return Err(()); // Multiple commas found
+                                }
+                                found_comma = true;
+                                chars.next(); // consume the comma
+                                continue;
+                            }
+                            OpChar::Number(c) => {
+                                if found_comma {
+                                    value_two.push(*c);
+                                } else {
+                                    value_one.push(*c);
+                                }
+                            }
+                            _ => return Err(()), // Invalid character found
+                        }
+                        chars.next();
+                    }
+                }
+                _ => {
+                    chars.next();
+                }
+            }
+            // If no valid "mul", just continue
+            return Err(());
+        }
+
+        Err(()) // Return error if no valid "mul()" expression found
     }
 }
