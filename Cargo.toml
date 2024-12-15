@@ -1,7 +1,7 @@
 [workspace]
 resolver ="2" 
-members = [ "days/eight", "days/five", "days/four", "days/nine",
-    "days/one", "days/seven", "days/six", "days/ten", "days/three", "days/two",
+members = [ "days/eight", "days/eleven", "days/fifteen", "days/five", "days/four", "days/fourteen", "days/nine",
+    "days/one", "days/seven", "days/six", "days/ten", "days/thirteen", "days/three", "days/twelve", "days/two",
     "elves",
 ]
 

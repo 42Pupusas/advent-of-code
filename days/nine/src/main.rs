@@ -13,6 +13,8 @@ fn main() {
         .collect::<String>().trim().to_string();
     println!("Time to read file: {:?}µs", now.elapsed());
     println!();
+    //println!("Part One");
+    //part_one(&input_str);
     println!();
     println!("Part Two");
     second_part_try_two(&input_str);
@@ -29,7 +31,7 @@ fn part_one(disk_map: &str) {
     // println!("{}", memory_manager);
     // println!();
     memory_block.swap_memory();
-    // prinln!("{}", memory_manager);
+    println!("{}", memory_block);
     println!();
     let checksum = memory_block.compute_checksum();
     println!("Checksum: {}", checksum);
@@ -139,7 +141,7 @@ mod tests {
     }
 }
 #[derive(Clone)]
-struct RamMemory {
+pub struct RamMemory {
     memory: Vec<MemChar>,
 }
 impl RamMemory {
@@ -197,7 +199,7 @@ enum MemChar {
 impl Display for MemChar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MemChar::Empty => write!(f, "{}", " "),
+            MemChar::Empty => write!(f, "{}", ".".yellow()),
             MemChar::File(file_char) => write!(f, "{}", file_char.to_string().green()),
         }
     }

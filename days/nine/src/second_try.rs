@@ -3,7 +3,6 @@ use std::fmt::Display;
 use colored::Colorize;
 pub fn second_part_try_two(input: &str) {
     let chars = input.chars().collect::<Vec<char>>();
-    println!("{:?}", chars);
     let mut disk_blocks = Vec::new();
     chars.chunks(2).enumerate().for_each(|(position, pair)| {
         if let Some(first) = pair.get(0) {
@@ -101,10 +100,31 @@ pub fn second_part_try_two(input: &str) {
         .iter()
         .enumerate()
         .fold(0, |mut acc, (index, mem_char)| {
+            print_different_color_for_digits(*mem_char);
             acc += mem_char * index as u64;
             acc
         });
     println!("Total: {}", total);
+}
+
+fn print_different_color_for_digits(digit: u64) {
+    let mod_2 = digit % 2;
+    let mod_3 = digit % 3;
+    let mod_5 = digit % 5;
+    let mod_7 = digit % 7;
+    if digit == 0 {
+        print!("{}", ".".to_string().white());
+    } else if mod_2 == 0 {
+        print!("{}", digit.to_string().green());
+    } else if mod_3 == 0 {
+        print!("{}", digit.to_string().blue());
+    } else if mod_5 == 0 {
+        print!("{}", digit.to_string().yellow());
+    } else if mod_7 == 0 {
+        print!("{}", digit.to_string().red());
+    } else {
+        print!("{}", digit.to_string().purple());
+    }
 }
 
 #[cfg(test)]
