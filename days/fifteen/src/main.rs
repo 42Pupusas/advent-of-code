@@ -33,14 +33,14 @@ fn main() {
         .enumerate()
         .for_each(|(count, instruction)| {
             warehouse.move_robot(*instruction);
-             if count > 0 {
-                 std::thread::sleep(std::time::Duration::from_millis(30));
-                 for _ in 0..warehouse.warehouse_height() {
-                     print!("\x1b[1A"); // Move cursor up by 1 line
-                     print!("\x1b[2K"); // Clear the line
-                 }
-             }
-             print!("{}", warehouse);
+            if count > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(30));
+                for _ in 0..warehouse.warehouse_height() {
+                    print!("\x1b[1A"); // Move cursor up by 1 line
+                    print!("\x1b[2K"); // Clear the line
+                }
+            }
+            print!("{}", warehouse);
         });
     println!();
     println!("GPS Sum: {}", warehouse.gps_sum());
